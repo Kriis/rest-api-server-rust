@@ -5,6 +5,7 @@
 
 use rocket_contrib::json::{Json, JsonValue};
 use serde::{Deserialize, Serialize};
+use rocket::response::content::Html;
 
 #[derive(Debug, Serialize, Deserialize, Clone)] // add Clone trait here
 struct Book {
@@ -52,6 +53,13 @@ fn create_book(book: Json<Book>) -> JsonValue {
     })
 }
 
+#[get("/")]
+fn index() -> Html<&'static str> {
+    // let html_str = fs::read_to_string("book.html").unwrap().clone();
+    let html_str = include_str!("book.html");
+    Html(&html_str)
+}
+
 fn main() {
     // Initialize the global variable with some books
     unsafe {
@@ -72,6 +80,6 @@ fn main() {
     }
 
     rocket::ignite()
-        .mount("/", routes![get_all_books, get_book, create_book])
+        .mount("/", routes![get_all_books, get_book, create_book, index])
         .launch();
 }
