@@ -6,6 +6,10 @@
 use rocket_contrib::json::{Json, JsonValue};
 use serde::{Deserialize, Serialize};
 use rocket::response::content::Html;
+use mongodb::{Client, Collection};
+use futures::stream::TryStreamExt;
+use tokio::runtime::Runtime;
+use std::{error::Error};
 
 #[derive(Debug, Serialize, Deserialize, Clone)] // add Clone trait here
 struct Book {
@@ -19,22 +23,38 @@ struct Book {
 // Define a static variable to hold all the books
 static mut BOOKS: Vec<Book> = Vec::new();
 
+async fn establish_connection() -> Collection<Book> {
+    // Connect to MongoDB
+    let client = Client::with_uri_str("mongodb://localhost:27017").await.unwrap();
+    let db = client.database("books_db");
+    // Get a handle to the "books" collection in the "books_db" database
+    db.collection::<Book>("books")
+}
+
+async fn get_book_from_database() -> Result<Vec<Book>, Box<dyn Error>> {
+    let books_collection = establish_connection().await;
+    let cursor = books_collection.find(None, None).await?;
+    let books: Vec<Book> = cursor.try_collect().await?;
+    
+    Ok(books)
+}
+
 #[get("/books")]
-fn get_all_books() -> Json<Vec<Book>> {
+fn get_all_books() -> Result<Json<Vec<Book>>, Box<dyn Error>> {
     // Use an unsafe block to access the global variable
-    unsafe {
-        Json(BOOKS.clone())
-    }
+
+    let books = Runtime::new()?.block_on(get_book_from_database()).unwrap();
+
+    Ok(Json(books))
 }
 
 #[get("/books/<id>")]
-fn get_book(id: u32) -> Option<Json<Book>> {
+fn get_book(id: u32) -> Result<Json<Book>, Box<dyn Error>> {
     // Use an unsafe block to access the global variable
-    unsafe {
-        BOOKS.iter()
-        .find(|book| book.id == id)
-        .map(|book| Json(book.clone()))
-    }
+    let books = Runtime::new()?.block_on(get_book_from_database()).unwrap();
+    let book = books.iter().find(|book| book.id == id).map(|book| Json(book.clone()));
+
+    Ok(book.unwrap())
 }
 
 #[post("/books", format = "json", data = "<book>")]
