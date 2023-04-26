@@ -83,22 +83,25 @@ fn get_book(id: u32) -> Result<Json<Book>, Status> {
 
 }
 
-#[post("/books", format = "json", data = "<book>")]
-fn create_book(book: Json<Book>) -> Result<Status, Status> {
+#[post("/books", data = "<book_str>")]
+fn create_book(book_str: String) -> Result<Status, Status> {
+
     let books_collection = Runtime::new().unwrap().block_on(establish_connection());
 
-    println!("{}", books_collection.name());
-    
+    let book: Vec<&str> = book_str.split("&").collect();
+    let id: Vec<&str>  = book[0].split("=").collect();
+    let title: Vec<&str>  = book[1].split("=").collect();
+    let author: Vec<&str>  = book[2].split("=").collect();
+    let description: Vec<&str>  = book[3].split("=").collect();
+
     let new_book = Book {
-        id: book.id,
-        author: book.author.to_string(),
-        description: book.description.to_string(),
-        title: book.title.to_string()
+        id: id[1].parse::<u32>().unwrap(),
+        title: title[1].to_string(),
+        author: author[1].to_string(),
+        description: description[1].replace("+", " ").to_string()
     };
 
     println!("{:?}",new_book);
-    
-    
     let insertResult = Runtime::new().unwrap().block_on(books_collection.insert_one(new_book, None));
 
     match insertResult {
@@ -108,9 +111,10 @@ fn create_book(book: Json<Book>) -> Result<Status, Status> {
             Err(Status::new(503, "Insert error"))
         }
     }
-    // Ok(Status::new(200,"Success"))
 
 }
+
+
 
 #[get("/")]
 fn index() -> Html<&'static str> {

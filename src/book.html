@@ -15,6 +15,19 @@
             <a href="/books/1">Get first book</a> |
             <a href="/books/2">Get second book</a>
         </nav>
+
+        <h2>Add new book</h2>
+        <form action="/books" method="post">
+            <label for="id">Id:</label><br>
+            <input type="number" id="id" name="id"><br>
+            <label for="title">Title:</label><br>
+            <input type="text" id="title" name="title"><br>
+            <label for="author">Author:</label><br>
+            <input type="text" id="author" name="author"><br>
+            <label for="description">Description:</label><br>
+            <input type="text" id="description" name="description"><br><br>
+            <input type="submit" value="Submit">
+          </form> 
         
     </body>
 </html>
