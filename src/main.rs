@@ -4,11 +4,11 @@
 #[macro_use] extern crate rocket_contrib;
 
 
-use rocket_contrib::json::{Json, JsonValue};
+use rocket_contrib::json::{Json};
 use serde::{Deserialize, Serialize};
 use rocket::response::content::Html;
-use mongodb::{Client, Collection};
-use futures::{stream::TryStreamExt, TryFutureExt};
+use mongodb::{bson::doc, Client, options::{ClientOptions, ServerApi, ServerApiVersion}, Collection};
+use futures::{stream::TryStreamExt};
 use tokio::runtime::Runtime;
 use std::{error::Error};
 use rocket::http::Status;
@@ -33,6 +33,33 @@ async fn establish_connection() -> Collection<Book> {
     let db = client.database("books_db");
     // Get a handle to the "books" collection in the "books_db" database
     db.collection::<Book>("books")
+}
+
+async fn write_to_database(new_book: Book) -> mongodb::error::Result<()>  {
+    // Connect to MongoDB
+    let uri = "mongodb+srv://".to_owned() + USER_PWD + "@rust-server-db.edsxatn.mongodb.net/?retryWrites=true&w=majority";
+
+    let mut client_options = ClientOptions::parse(uri).await?;
+    let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
+
+    client_options.server_api = Some(server_api);
+
+    let client = Client::with_options(client_options)?;
+
+    client
+        .database("admin")
+        .run_command(doc! {"ping": 1}, None)
+        .await?;
+
+    let db = client.database("books_db");
+
+    let book_collection = db.collection::<Book>("books");
+
+    book_collection.insert_one(new_book, None).await?;
+
+    println!("Pinged your deployment, you successfully connected to MongoDB!!");
+
+    Ok(())
 }
 
 async fn get_book_from_database() -> Result<Vec<Book>, Box<dyn Error>> {
@@ -86,8 +113,6 @@ fn get_book(id: u32) -> Result<Json<Book>, Status> {
 #[post("/books", data = "<book_str>")]
 fn create_book(book_str: String) -> Result<Status, Status> {
 
-    let books_collection = Runtime::new().unwrap().block_on(establish_connection());
-
     let book: Vec<&str> = book_str.split("&").collect();
     let id: Vec<&str>  = book[0].split("=").collect();
     let title: Vec<&str>  = book[1].split("=").collect();
@@ -102,16 +127,10 @@ fn create_book(book_str: String) -> Result<Status, Status> {
     };
 
     println!("{:?}",new_book);
-    let insertResult = Runtime::new().unwrap().block_on(books_collection.insert_one(new_book, None));
 
-    match insertResult {
-        Ok(insertResult) => Ok(Status::new(200,"Success")),
-        Err(err) => {
-            println!("{}",err);
-            Err(Status::new(503, "Insert error"))
-        }
-    }
-
+    let _ = Runtime::new().unwrap().block_on(write_to_database(new_book));
+        
+    Ok(Status::new(200,"Success"))
 }
 
 
