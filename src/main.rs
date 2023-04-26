@@ -96,8 +96,8 @@ fn create_book(book_str: String) -> Result<Status, Status> {
 
     let new_book = Book {
         id: id[1].parse::<u32>().unwrap(),
-        title: title[1].to_string(),
-        author: author[1].to_string(),
+        title: title[1].replace("+", " ").to_string(),
+        author: author[1].replace("+", " ").to_string(),
         description: description[1].replace("+", " ").to_string()
     };
 
